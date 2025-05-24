@@ -1,1 +1,26 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment variables / secrets
 .env
+
+# Virtual environment folders
+venv/
+.env/
+.venv/
+env/
+ENV/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# macOS junk
+.DS_Store
+
+# VS Code project files
+.vscode/
+
+# Streamlit temp files
+.streamlit/config.toml
