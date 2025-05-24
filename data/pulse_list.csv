@@ -1,0 +1,5 @@
+Category,Pulse Name,Pulse URL
+Honeypot,SSH Honeypot Logs for 2025 (by jnazario),https://otx.alienvault.com/pulse/6831bb4236e3eb54d95d464f
+Banking,PhishTank - Dynamic List of Verified/Online Banking Phishing URLs,https://otx.alienvault.com/pulse/617b0867f77ec5e2192a4cf5
+Office,PhishTank - Dynamic List of Verified/Online Office365 Phishing URLs,https://otx.alienvault.com/pulse/617b0873c577ec5e2192a4c5
+Malicious IPs,IP Addresses Logged by the Rosethorn PotNet,https://otx.alienvault.com/pulse/6421c1a0fd8452595dc148fa
