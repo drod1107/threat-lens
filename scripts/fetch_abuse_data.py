@@ -1,4 +1,8 @@
-import os, requests, json
+import pandas as pd
+from scripts.pulse_loader import load_pulse_list
+from scripts.otx_api import fetch_pulse_indicators, fetch_ip_reports
+from scripts.indicator_utils import get_confidence_score, get_threat_type
+
 """
 The provided Python script fetches threat indicators from AlienVault OTX pulses, aggregates
 malicious IPs and phishing URLs, and provides detailed threat intelligence for specific IPs.
@@ -13,96 +17,60 @@ used as a key to retrieve
 :return: The code provided includes functions to fetch threat intelligence data from AlienVault OTX
 (Open Threat Exchange) API. Here is a summary of the main functions:
 """
-from datetime import datetime, timedelta
-import pandas as pd
-from dotenv import load_dotenv
 
-# Load environment variables from .env file
-load_dotenv()
+# Load pulse IDs from CSV
+pulse_dicts = load_pulse_list("data/pulse_list.csv")
 
-API_KEY = os.getenv("ALIENVAULT_OTX_API_KEY")
+# loop over each pulse to fetch indicators from API
 
-if not API_KEY:
-    raise RuntimeError("API key not found. Please set the ALIENVAULT_OTX_API_KEY environment variable.")
-
-# OTX Pulse IDs for our threat feeds
-PULSE_IDS = {
-    "tcp_portscan": "5c3e1a8b8e0dd64e4d2c9a41",  # TCP Active Portscan
-    "ssh_bruteforce": "5c3e1a8b8e0dd64e4d2c9a42",  # SSH Brute-Force Honeypot Live
-    "telnet_honeypot": "5c3e1a8b8e0dd64e4d2c9a43",  # Honeypot Visitors (TCP/23)
-    "phishtank_urls": "5c3e1a8b8e0dd64e4d2c9a44"   # PhishTank Banking Phishing URLs
-}
-
-# Caching setup
-CACHE_DIR = "cache"
-os.makedirs(CACHE_DIR, exist_ok=True)
-
-def fetch_pulse_indicators(pulse_id, pulse_name):
+def fetch_all_pulse_indicators(pulse_dicts):
     """
-    Fetch indicators from a specific OTX pulse.
-    Returns a list of indicators with metadata.
+    Fetches indicators for every pulse in pulse_dicts.
+    Returns a list of dicts: [{'pulse': ..., 'indicators': [...]}, ...]
     """
-    cache_file = os.path.join(CACHE_DIR, f"pulse_{pulse_name}.json")
-    
-    # Check cache validity (refresh every 2 hours)
-    if os.path.exists(cache_file):
-        modified_time = datetime.fromtimestamp(os.path.getmtime(cache_file))
-        if datetime.now() - modified_time < timedelta(hours=2):
-            with open(cache_file, "r") as f:
-                return json.load(f)
-    
-    # Fetch fresh data from OTX
-    url = f"https://otx.alienvault.com/api/v1/pulses/{pulse_id}/indicators"
-    headers = {"X-OTX-API-KEY": API_KEY}
-    
-    try:
-        response = requests.get(url, headers=headers, timeout=30)
-        if response.status_code != 200:
-            raise RuntimeError(f"Failed to fetch pulse {pulse_name}: {response.status_code} - {response.text}")
-        
-        data = response.json()
-        
-        # Cache the response
-        with open(cache_file, "w") as f:
-            json.dump(data, f)
-        
-        return data
-        
-    except requests.exceptions.RequestException as e:
-        raise RuntimeError(f"Network error fetching pulse {pulse_name}: {str(e)}")
-
+    results = []
+    for pulse in pulse_dicts:
+        pulse_id = pulse["id"]
+        pulse_name = pulse["name"]
+        indicators = fetch_pulse_indicators(pulse_id, pulse_name)
+        results.append({
+            "pulse": pulse,
+            "indicators": indicators
+        })
+        print(f"Fetched {len(indicators.get('results', []) if isinstance(indicators, dict) else indicators)} indicators from pulse '{pulse_name}' (ID: {pulse_id})")
+    return results
+   
 def fetch_blacklisted_ips(limit=100):
     """
     Aggregate malicious IPs from multiple OTX pulses and return as DataFrame.
     Combines TCP portscan, SSH brute-force, and Telnet honeypot indicators.
     """
+    pulses = load_pulse_list("data/pulse_list.csv")
     all_ips = []
     
-    # Fetch IP indicators from relevant pulses
-    ip_pulse_names = ["tcp_portscan", "ssh_bruteforce", "telnet_honeypot"]
-    
-    for pulse_name in ip_pulse_names:
+    # Fetch IP indicators from every pulse
+    for pulse in pulses:
+        pulse_name = pulse["name"]
+        pulse_id   = pulse["id"]
         try:
-            pulse_id = PULSE_IDS[pulse_name]
             indicators_data = fetch_pulse_indicators(pulse_id, pulse_name)
             
             # Extract IP indicators
             for indicator in indicators_data.get('results', []):
                 if indicator.get('type') == 'IPv4':
                     ip_info = {
-                        'ipAddress': indicator['indicator'],
-                        'source': pulse_name,
-                        'description': indicator.get('description', ''),
-                        'created': indicator.get('created', ''),
-                        'modified': indicator.get('modified', ''),
-                        # Simulate confidence score based on source
-                        'abuseConfidenceScore': get_confidence_score(pulse_name),
-                        'threat_type': get_threat_type(pulse_name)
+                        'ipAddress':           indicator['indicator'],
+                        'source':              pulse_name,
+                        'description':         indicator.get('description', ''),
+                        'created':             indicator.get('created', ''),
+                        'modified':            indicator.get('modified', ''),
+                        'abuseConfidenceScore':get_confidence_score(pulse_name),
+                        'threat_type':         get_threat_type(pulse_name)
                     }
                     all_ips.append(ip_info)
                     
         except Exception as e:
-            print(f"Warning: Failed to fetch {pulse_name}: {str(e)}")
+            print(f"Warning: Failed to fetch {pulse_name}: {e}")
             continue
     
     if not all_ips:
@@ -110,7 +78,7 @@ def fetch_blacklisted_ips(limit=100):
     
     # Convert to DataFrame and sort by confidence
     df = pd.DataFrame(all_ips)
-    df = df.drop_duplicates(subset=['ipAddress'], keep='first')  # Remove duplicates
+    df = df.drop_duplicates(subset=['ipAddress'], keep='first')
     df = df.sort_values(by='abuseConfidenceScore', ascending=False)
     
     return df.head(limit)
@@ -120,83 +88,27 @@ def fetch_phishing_urls(limit=50):
     Fetch phishing URLs from PhishTank pulse.
     Returns DataFrame with URL indicators.
     """
-    try:
-        pulse_id = PULSE_IDS["phishtank_urls"]
-        indicators_data = fetch_pulse_indicators(pulse_id, "phishtank_urls")
-        
-        phishing_urls = []
-        for indicator in indicators_data.get('results', []):
-            if indicator.get('type') in ['URL', 'hostname', 'domain']:
-                url_info = {
-                    'url': indicator['indicator'],
-                    'type': indicator.get('type', 'URL'),
-                    'description': indicator.get('description', ''),
-                    'created': indicator.get('created', ''),
-                    'modified': indicator.get('modified', ''),
-                    'threat_type': 'Phishing'
-                }
-                phishing_urls.append(url_info)
-        
-        df = pd.DataFrame(phishing_urls)
-        return df.head(limit)
-        
-    except Exception as e:
-        print(f"Warning: Failed to fetch phishing URLs: {str(e)}")
-        return pd.DataFrame()  # Return empty DataFrame on error
+    pulses = load_pulse_list("data/pulse_list.csv")
+    phishing_urls = []
 
-def fetch_ip_reports(ip):
-    """
-    Fetch detailed threat intelligence for a specific IP from AlienVault OTX.
-    Uses local cache if data is less than 8 hours old.
-    """
-    cache_file = os.path.join(CACHE_DIR, f"ip_reports_{ip.replace('.', '_')}.json")
-    
-    # Check cache validity
-    if os.path.exists(cache_file):
-        modified_time = datetime.fromtimestamp(os.path.getmtime(cache_file))
-        if datetime.now() - modified_time < timedelta(hours=8):
-            with open(cache_file, "r") as f:
-                return json.load(f)
-    
-    # Fetch fresh data from OTX
-    url = f"https://otx.alienvault.com/api/v1/indicators/IPv4/{ip}/general"
-    headers = {"X-OTX-API-KEY": API_KEY}
-    
-    try:
-        response = requests.get(url, headers=headers, timeout=30)
-        if response.status_code != 200:
-            raise RuntimeError(f"Failed to fetch OTX data: {response.status_code} - {response.text}")
-        
-        data = response.json()
-        
-        # Cache response
-        with open(cache_file, "w") as f:
-            json.dump(data, f)
-        
-        return data
-        
-    except requests.exceptions.RequestException as e:
-        raise RuntimeError(f"Network error fetching IP report for {ip}: {str(e)}")
+    for pulse in pulses:
+        name = pulse["name"]
+        if "phishtank" not in name.lower():
+            continue
 
-def get_confidence_score(pulse_name):
-    """
-    Assign confidence scores based on pulse type.
-    Higher scores for more reliable/severe threat types.
-    """
-    confidence_map = {
-        "ssh_bruteforce": 95,      # High confidence - active attacks
-        "tcp_portscan": 85,        # High confidence - reconnaissance
-        "telnet_honeypot": 90,     # Very high - IoT attacks
-    }
-    return confidence_map.get(pulse_name, 75)
+        pulse_id = pulse["id"]
+        indicators_data = fetch_pulse_indicators(pulse_id, name)
 
-def get_threat_type(pulse_name):
-    """
-    Map pulse names to human-readable threat types.
-    """
-    threat_map = {
-        "tcp_portscan": "Port Scanning",
-        "ssh_bruteforce": "SSH Brute Force",
-        "telnet_honeypot": "IoT/Telnet Attack"
-    }
-    return threat_map.get(pulse_name, "Unknown")
+        for rec in indicators_data.get("results", []):
+            if rec.get("type") in ("URL", "hostname", "domain"):
+                phishing_urls.append({
+                    "url":         rec["indicator"],
+                    "type":        rec.get("type", "URL"),
+                    "description": rec.get("description", ""),
+                    "created":     rec.get("created", ""),
+                    "modified":    rec.get("modified", ""),
+                    "threat_type": "Phishing",
+                })
+
+    df = pd.DataFrame(phishing_urls)
+    return df.head(limit)

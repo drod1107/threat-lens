@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
-from scripts.fetch_abuse_data import fetch_blacklisted_ips, fetch_ip_reports, fetch_phishing_urls
+from scripts.fetch_abuse_data import fetch_blacklisted_ips, fetch_phishing_urls
+from scripts.fetch_abuse_data import fetch_all_pulse_indicators  # optional: full list
+from scripts.otx_api           import fetch_ip_reports              # for drilldowns
 
 def make_clickable_ip(ip):
     """
@@ -46,7 +48,8 @@ table th {
     color: #262730;
 }
 table tr:hover {
-    background-color: #f8f9fa;
+    background-color: purple;
+    color: white;
 }
 .threat-badge {
     padding: 2px 8px;
@@ -69,14 +72,14 @@ def cached_blacklist():
     """
     Fetches malicious IP addresses from multiple OTX pulses and caches the result.
     """
-    return fetch_blacklisted_ips(limit=100)
+    return fetch_blacklisted_ips(limit=10)
 
 @st.cache_data(ttl=7200)  # Cache for 2 hours
 def cached_phishing_urls():
     """
     Fetches phishing URLs from OTX PhishTank pulse and caches the result.
     """
-    return fetch_phishing_urls(limit=50)
+    return fetch_phishing_urls(limit=10)
 
 # Handle IP drilldown if selected
 if selected_ip:
@@ -201,7 +204,7 @@ with col2:
         if not df_phishing.empty:
             # Prepare display DataFrame
             df_phish_display = df_phishing.copy()
-            df_phish_display['url'] = df_phish_display['url'].apply(make_clickable_url)
+            df_phish_display['url'] = df_phish_display['url']
             df_phish_display['threat_type'] = df_phish_display['threat_type'].apply(
                 lambda x: f'<span class="threat-badge phish-badge">{x}</span>'
             )
