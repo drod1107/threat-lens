@@ -24,7 +24,7 @@ query_params = st.query_params
 selected_ip = query_params.get("ip")
 
 st.set_page_config(
-    page_title="ThreatLens IOC Dashboard",
+    page_title="ThreatMap IOC Dashboard",
     page_icon="🛡️",
     layout="wide"
 )
@@ -65,7 +65,7 @@ table tr:hover {
 </style>
 """, unsafe_allow_html=True)
 
-st.title("🛡️ ThreatLens IOC Dashboard")
+st.title("🛡️ ThreatMap IOC Dashboard")
 st.caption("Real-time threat intelligence from AlienVault OTX feeds")
 
 @st.cache_data(ttl=7200)  # Cache for 2 hours
