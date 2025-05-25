@@ -3,6 +3,7 @@ import pandas as pd
 from scripts.fetch_abuse_data import fetch_blacklisted_ips, fetch_phishing_urls
 from scripts.fetch_abuse_data import fetch_all_pulse_indicators  # optional: full list
 from scripts.otx_api           import fetch_ip_reports              # for drilldowns
+from scripts.threat_map import build_global_threat_map
 
 def make_clickable_ip(ip):
     """
@@ -253,6 +254,14 @@ if not selected_ip:  # Only show on main dashboard
             
     except Exception as e:
         st.error(f"Error calculating summary statistics: {str(e)}")
+        
+st.markdown("### 🌍 Global Threat Map")
+with st.spinner("Building choropleth..."):
+    try:
+        fig = build_global_threat_map()
+        st.plotly_chart(fig, use_container_width=True)
+    except Exception as e:
+        st.error(f"Map could not be rendered: {str(e)}")
 
 st.markdown("---")
 st.markdown("**Data Sources:** AlienVault OTX • TCP Portscan Feed • SSH Brute-Force Feed • Telnet Honeypot Feed • PhishTank URLs")

@@ -1,137 +1,117 @@
-# ThreatLens Dashboard
+# ThreatMap
 
-### _Unified threat monitoring and analysis dashboard for cybersecurity signal detection_
+## _Interactive cyber threat intelligence dashboard with global IOC heatmapping and IP-level drilldowns_
 
-## Executive Summary
+### Executive Summary
 
-ThreatLens Dashboard is a professional-grade cybersecurity data visualization tool that merges real-time threat intelligence, web-scraped disclosures, and static data logs into a single, interactive dashboard. The project demonstrates hands-on experience in cybersecurity operations, data engineering, and visualization by simulating realistic analyst workflows and SOC-level insights.
+**ThreatMap** is a modern threat intelligence dashboard built with real-time data from public threat feeds. It provides instant visibility into global Indicators of Compromise (IOCs), featuring interactive geospatial heatmaps, detailed IP-level reports, and summarized metrics. The project showcases practical skills in cybersecurity operations, data ingestion, enrichment, and live visualization.
 
-## Project Objective
+> Live demo: [https://threatmap.streamlit.app](https://threatmap.streamlit.app)
 
-The ThreatLens Dashboard was created to demonstrate practical, cross-disciplinary fluency in cybersecurity operations, data ingestion, and transformation, and real-time data visualization. The primary goals of this project are:
+### Project Goals
 
-- To showcase end-to-end technical capability in parsing and integrating heterogenous data sources, including APIs, web scrapers, and static data sets.
-- To simluate real-world security analyst worflows by processing and analyzing threat indicators, logs, and breach disclosures
-- To provide an interactive, analyst-facing dashboard capable of delivering both the immediate threat overviews and investigative insight
+- Integrate and normalize threat indicators from public threat intelligence APIs.
+- Enrich malicious IP addresses with metadata like country and ASN.
+- Visualize the global threat landscape with interactive maps and tabular summaries.
+- Demonstrate SOC-style investigation capabilities with real-time drilldowns.
+- Design for modularity, caching, and future real-time scaling.
+
+## Live Features
+
+### ✔ IOC Data Aggregation
+
+- Fetches IPv4 threat indicators from AlienVault OTX pulses
+- Supports dynamic addition of new threat feeds via CSV
+
+### ✔ Streamlit Dashboard
+
+- Malicious IP table with clickable drilldowns
+- Phishing URL table with category badges
+- Summary metrics (confidence, source diversity, total IOCs)
+
+### ✔ Global Threat Heatmap
+
+- Choropleth world map based on country-level IOC frequency
+- ISO3 conversion via `pycountry`
+- Fully cached with per-IP enrichment (via AlienVault API)
+
+### ✔ Drilldown Reports
+
+- Country, reputation, ASN, malware families, pulse tags
+- Live data fetched from OTX on demand
+- Caching to JSON per-IP to avoid rate limiting
 
 ## Tech Stack
 
-### Data Ingestion
+| Layer              | Toolset                                                                 |
+|-------------------|-------------------------------------------------------------------------|
+| Language           | Python 3                                                                |
+| Data Ingestion     | `requests`, `dotenv`, `json`                                            |
+| Enrichment         | AlienVault OTX API, `fetch_ip_reports()`                                |
+| Visualization      | `Streamlit`, `Plotly Express`, `pandas`                                 |
+| Mapping            | `pycountry` for ISO3 mapping, Plotly choropleth                         |
+| Caching            | `streamlit.cache_data`, local disk cache for IP and pulse fetches       |
 
-- ```requests``` - for RESTful API calls
-- ```BeautifulSoup``` - for structured HTML scraping
-- ```pandas``` - for data normalization and transformation
-- ```json``` - for structured data parsing and serialization
+## File Structure
 
-### Backend/Processing
+```bash
 
-- ```Python 3``` - core scripting language
-- ```os/dotenv``` - environment management for API keys and secrets
+threatmap/
+├── main.py                 # Streamlit entry point
+├── requirements.txt        # Dependencies
+├── .env.example            # API key config template
+├── data/
+│   └── pulse_list.csv      # Source list of OTX pulses
+├── cache/                  # JSON cache of IP and pulse reports
+├── scripts/
+│   ├── fetch_abuse_data.py    # Core data ingestion logic
+│   ├── otx_api.py             # OTX-specific API handling and caching
+│   ├── pulse_loader.py        # Pulse feed CSV loader
+│   ├── indicator_utils.py     # Threat type + confidence mapping
+│   └── threat_map.py          # Global choropleth map builder
 
-### Visualization/Dashboard
+```
 
-- ```Streamlit``` - lightweight web app framework for Python
-- ```matplotlib``` - for interactive and static data visualizations
+### Roadmap (Next Priorities)
 
-### Deployment (Planned)
+- IP geolocation and global threat map (DONE)
+- Date filtering & time-window slider for map and tables
+- Search, filter, and tag-based IOC triage
+- Threat clustering (group by malware family, country, pulse)
+- Export to CSV or SOC incident report template
+- Dockerize app for reproducible container deployment
+- CI/CD with GitHub Actions to auto-deploy on commit
 
-- Github Pages or custom domain deployment using CI/CD workflows
-- Docker (Planned for future containerization and maximum reproducability)
-
-
-## Current Capabilities (MVP Scope)
-
-- Integrations with a public threat intelligence API (e.g., AlienVault OTX or AbuselPDB) for live IOC (Indicators of Compromise) retrieval
-- Web Scarping of recent breach headlines from cybersecurity news sources
-- Ingestion and parsing of static datasets representing system logs or threat reports.
-- Normalization and unification of data from multiple formats into a common schema.
-- Interactive dashboard prototype (Streamlit) displaying indicator data in tabular format.
-- Clean, modular codebase prepared for scaling across multiple data sources.
-- GitHub Project board configured to manage agile development in public.
-
-## Planned Extensions
-
--Incorporation of geolocation enrichment for IP-based IOCs (via IPinfo or IP-API).
--Visual geospatial mapping of IP threats on a global coordinate grid.
--Anomaly detection logic applied to time-series log data (e.g., failed login spikes).
--Filter and search functionality for IOC tables by type, severity, or source.
--Scheduled API pulls and auto-refresh logic for near real-time visibility.
--Static report export options (PDF or CSV) for SOC or compliance documentation.
--Docker containerization for consistent deployment across environments.
--CI/CD pipeline configuration for automated deployment and testing.
-
-## File and Directory Structure
-
-threatlens-dashboard/
-│
-├── app/                  # Streamlit or Flask app files (UI logic, main launch)
-├── data/                 # Static datasets and local cache of API responses
-├── scripts/              # Web scraper, API client, data normalization routines
-├── utils/                # Helper functions, schema definitions, config loaders
-├── .env.example          # Environment variable template for API keys
-├── requirements.txt      # Python package dependencies
-├── README.md             # Project documentation
-└── LICENSE               # Licensing information (if applicable)
-
-## Usage Instructions
+## Getting Started
 
 ### Prerequisites
 
-- Python 3.9 or higher
-- pip (Python package manager)
-- Git (for cloning the repository)
+- Python 3.9+
+- Streamlit installed (`pip install -r requirements.txt`)
+- Valid API key for [OTX](https://otx.alienvault.com)
 
-### Environment Setup
-
-1. Clone the repository
-
-    ```bash
-    git clone git@github.com:yourusername/threatlens-dashboard.git
-    cd threatlens-dashboard
-    ```
-
-2. Create a virtual environment and activate it. This helps to avoid conflicts between python versions and package management
-
-    **On macOS/Linux:**
-
-    ```bash
-    python -m venv venv 
-    source venv/bin/activate
-    ```
-
-    **On Windows:**
-
-    ```bash
-    venv\Scripts\activate
-    ```
-
-3. Install Dependencies
-
-    ```bash
-    pip install -r requirements.txt
-    ```
-
-4. Setup API keys
-
-    - Copy .env.example to .env
-    - Fill in required API tokens and credentials
-
-### Running the Dashboard
+### Run Locally
 
 ```bash
-streamlit run app/main.py
+git clone https://github.com/yourusername/threatmap.git
+cd threatmap
+cp .env.example .env  # Add your ALIENVAULT_OTX_API_KEY
+pip install -r requirements.txt
+streamlit run main.py
 ```
 
-## Deployment
+---
 
-(planned for future development)
+### License
 
-## Author and Contact
+MIT License (customize if needed)
 
-**Developer:** David Rodriguez
+### Author
 
-**GitHub:** [drod1107](https://github.com/drod1107)
+#### David Rodriguez
 
-**Email:** [Click here](mailto:80010850+drod1107@users.noreply.github.com)
+- GitHub: [@drod1107](https://github.com/drod1107)
+- Live app: [https://threatmap.streamlit.app](https://threatmap.streamlit.app)
+- Email: [click here to get in touch](mailto:80010850+drod1107@users.noreply.github.com)
 
-**Professional Focus:** Applied cybersecurity, data analysis, Big Data Ops, systems automation, applied AI, software engineering, quality assurance, automated testing
+---
