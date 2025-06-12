@@ -104,7 +104,7 @@ streamlit run main.py
 
 ### License
 
-MIT License (customize if needed)
+MIT License
 
 ### Author
 
